@@ -328,7 +328,27 @@ class TestErrorHandling:
         results = engine.sync_all()
         assert results[0].status == SyncStatus.FAILED
         err = results[0].error_message.lower()
-        assert "both" in err or "failed" in err
+        assert "failed" in err
+
+    def test_one_snapshot_fails_bidirectional(self, tmp_path):
+        """Only one snapshot fails in bidirectional mode — should still be FAILED."""
+        hf = MockAdapter("hf")
+        hf._snapshot_fail = True
+        ms = MockAdapter("ms")
+        ms._files = {"model.bin": b"data"}
+
+        config = make_config(direction="bidirectional")
+        engine = SyncEngine(
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
+        )
+
+        results = engine.sync_all()
+        assert results[0].status == SyncStatus.FAILED
+        err = results[0].error_message.lower()
+        assert "hf" in err and "failed" in err
 
     def test_hf_snapshot_fails_ms_to_hf_ok(self, tmp_path):
         """HF snapshot fails but MS_TO_HF only needs MS snapshot — should succeed."""

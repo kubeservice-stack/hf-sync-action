@@ -155,10 +155,11 @@ class SyncEngine:
             )
 
             if item.direction == SyncDirection.BIDIRECTIONAL:
-                if hf_snapshot is None and ms_snapshot is None:
+                if hf_snapshot is None or ms_snapshot is None:
                     raise RuntimeError(
-                        f"Cannot sync BIDIRECTIONAL: failed to fetch both "
-                        f"HF ({item.hf_repo_id}) and MS ({item.ms_repo_id}) snapshots"
+                        f"Cannot sync BIDIRECTIONAL: failed to fetch snapshot — "
+                        f"HF ({item.hf_repo_id})={'OK' if hf_snapshot else 'FAILED'}, "
+                        f"MS ({item.ms_repo_id})={'OK' if ms_snapshot else 'FAILED'}"
                     )
                 bd = BidirectionalChangeDetector(**detector_kwargs)
                 hf_state = self.states.get(
@@ -532,11 +533,10 @@ def main() -> None:
 
     print_summary(results)
 
-    # Exit with error code only if ALL items failed
-    # Partial success (some items OK, some failed) exits 0 to avoid
-    # blocking downstream steps like report generation
-    all_failed = results and all(r.status == SyncStatus.FAILED for r in results)
-    if all_failed:
+    # Exit with error code if any item failed.
+    # Downstream CI steps (report, issue creation) use `if: always()`.
+    any_failed = any(r.status == SyncStatus.FAILED for r in results)
+    if any_failed:
         sys.exit(1)
 
 
