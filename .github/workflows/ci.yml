@@ -116,8 +116,8 @@ jobs:
 
       - name: Verify Docker image
         run: |
-          # Verify the image has the entrypoint
-          docker run --rm hf-ms-sync:ci cat /entrypoint.sh > /dev/null
+          # Verify the image has the entrypoint (override ENTRYPOINT to run cat)
+          docker run --rm --entrypoint cat hf-ms-sync:ci /entrypoint.sh > /dev/null
           echo "Docker image built and verified"
 
       - name: Dry-run test in Docker
