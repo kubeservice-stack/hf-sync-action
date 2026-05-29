@@ -47,13 +47,13 @@ ruff format src/ tests/
 
 - We use **ruff** for linting and formatting
 - Line length: 100 characters
-- Target Python version: 3.11
+- Target Python versions: 3.10–3.12
 - Use type hints where practical
 - Follow existing patterns in the codebase
 
 ## Project Structure
 
-```
+```text
 src/
 ├── adapters/          # Platform adapters (HuggingFace, ModelScope)
 ├── config.py          # Configuration loading and validation

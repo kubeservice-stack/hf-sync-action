@@ -635,3 +635,27 @@ class TestGitHubOutputs:
         # Should not raise
         results = engine.sync_all()
         assert results[0].status == SyncStatus.SUCCESS
+
+    def test_github_output_empty_config(self, tmp_path, monkeypatch):
+        """Empty config should still write GitHub outputs with zero counters."""
+        output_file = tmp_path / "github_output"
+        output_file.write_text("")
+        monkeypatch.setenv("GITHUB_OUTPUT", str(output_file))
+
+        hf = MockAdapter("hf")
+        ms = MockAdapter("ms")
+
+        config = make_config(direction="hf_to_ms", models=[], datasets=[])
+        engine = SyncEngine(
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
+        )
+        results = engine.sync_all()
+
+        assert results == []
+        content = output_file.read_text()
+        assert "sync_status=success" in content
+        assert "files_synced=0" in content
+        assert "bytes_transferred=0" in content

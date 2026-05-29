@@ -375,7 +375,10 @@ class SyncEngine:
         items = self._build_sync_items()
         if not items:
             logger.warning("No sync items configured")
-            return []
+            results: list[SyncResult] = []
+            self._write_results(results)
+            self._write_github_outputs(results)
+            return results
 
         logger.info("Starting sync for %d items (dry_run=%s)", len(items), self.dry_run)
         results: list[SyncResult] = []
