@@ -239,18 +239,33 @@ class ModelScopeAdapter(PlatformAdapter):
         resource_type: Literal["model", "dataset"],
     ) -> None:
         try:
-            self.get_repo_snapshot(repo_id, resource_type)
-            logger.info("[MS] Repo %s already exists", repo_id)
-        except Exception:
-            logger.info("[MS] Creating repo %s (%s)", repo_id, resource_type)
             if self._api:
-                self._api.create_repo(repo_id)
+                exists = self._api.repo_exists(repo_id)
             else:
                 from huggingface_hub import HfApi
 
                 api = HfApi(endpoint="https://modelscope.cn", token=self._token)
+                exists = api.repo_exists(
+                    repo_id=repo_id,
+                    repo_type="dataset" if resource_type == "dataset" else "model",
+                )
+
+            if exists:
+                logger.info("[MS] Repo %s already exists", repo_id)
+                return
+
+            logger.info("[MS] Creating repo %s (%s)", repo_id, resource_type)
+            if self._api:
+                self._api.create_repo(
+                    repo_id=repo_id,
+                    repo_type="dataset" if resource_type == "dataset" else "model",
+                )
+            else:
                 api.create_repo(
                     repo_id=repo_id,
                     repo_type="dataset" if resource_type == "dataset" else "model",
                     exist_ok=True,
                 )
+        except Exception as e:
+            logger.warning("[MS] create_repo_if_needed failed for %s: %s", repo_id, e)
+            # Non-fatal: sync will fail naturally if repo doesn't exist
