@@ -61,15 +61,26 @@ class ModelScopeAdapter(PlatformAdapter):
         commit_hash = None
 
         try:
-            # List files
-            files = self._api.list_repo_files(repo_id, recursive=True)
-            for fname in files:
-                if isinstance(fname, str):
-                    file_list.append(FileInfo(path=fname, size=0))
+            # List files using the correct SDK methods
+            if resource_type == "dataset":
+                files = self._api.get_dataset_files(repo_id, recursive=True)
+            else:
+                files = self._api.get_model_files(repo_id, recursive=True)
+
+            for entry in files:
+                if isinstance(entry, str):
+                    file_list.append(FileInfo(path=entry, size=0))
+                elif isinstance(entry, dict):
+                    path = entry.get("Name", entry.get("Path", ""))
+                    size = entry.get("Size", 0) or 0
+                    sha = entry.get("Revision", entry.get("sha256"))
+                    if path:
+                        file_list.append(FileInfo(path=path, size=size, sha256=sha))
+                        total_size += size
                 else:
-                    path = getattr(fname, "Path", getattr(fname, "path", str(fname)))
-                    size = getattr(fname, "Size", getattr(fname, "size", 0)) or 0
-                    sha = getattr(fname, "Revision", getattr(fname, "sha256", None))
+                    path = getattr(entry, "Name", getattr(entry, "Path", str(entry)))
+                    size = getattr(entry, "Size", 0) or 0
+                    sha = getattr(entry, "Revision", None)
                     file_list.append(FileInfo(path=str(path), size=size, sha256=sha))
                     total_size += size
         except Exception as e:
