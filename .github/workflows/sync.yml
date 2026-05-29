@@ -128,21 +128,24 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           MODELSCOPE_TOKEN: ${{ secrets.MODELSCOPE_TOKEN }}
         run: |
-          ARGS="--config config/sync_config.yaml --state-dir .sync_state/"
+          ARGS=(
+              "--config" "config/sync_config.yaml"
+              "--state-dir" ".sync_state/"
+          )
 
           if [ "${{ inputs.dry_run }}" = "true" ]; then
-            ARGS="$ARGS --dry-run true"
+            ARGS+=("--dry-run" "true")
           fi
 
           if [ -n "${{ inputs.direction }}" ] && [ "${{ inputs.direction }}" != "config" ]; then
-            ARGS="$ARGS --direction ${{ inputs.direction }}"
+            ARGS+=("--direction" "${{ inputs.direction }}")
           fi
 
           if [ -n "${{ inputs.sync_target }}" ]; then
-            ARGS="$ARGS --target ${{ inputs.sync_target }}"
+            ARGS+=("--target" "${{ inputs.sync_target }}")
           fi
 
-          python -m src.sync_engine $ARGS
+          python -m src.sync_engine "${ARGS[@]}"
 
       - name: Save sync state
         uses: actions/upload-artifact@v4
