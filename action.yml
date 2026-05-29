@@ -1,5 +1,5 @@
 name: 'HF-MS Sync'
-description: 'Bidirectional sync of AI models and datasets between HuggingFace and ModelScope. Supports scheduled, manual, and webhook-triggered sync with conflict resolution.'
+description: 'Bidirectional sync of AI models and datasets between HuggingFace and ModelScope.'
 author: 'kubeservice-stack'
 
 branding:
