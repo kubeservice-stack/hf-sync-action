@@ -10,7 +10,7 @@
     <a href="https://github.com/kubeservice-stack/hf-sync-action/actions">
       <img src="https://img.shields.io/github/actions/workflow/status/kubeservice-stack/hf-sync-action/sync.yml?style=flat-square" alt="CI">
     </a>
-    <a href="https://github.com/kubeservice-stack/hf-sync-action/blob/main/LICENSE">
+    <a href="https://github.com/kubeservice-stack/hf-sync-action/blob/master/LICENSE">
       <img src="https://img.shields.io/github/license/kubeservice-stack/hf-sync-action?style=flat-square" alt="License">
     </a>
     <a href="https://github.com/kubeservice-stack/hf-sync-action/releases">
