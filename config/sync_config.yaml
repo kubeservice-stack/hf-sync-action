@@ -16,7 +16,7 @@ global:
 models:
   - name: "qwen2.5-7b-instruct"
     hf_repo_id: "Qwen/Qwen2.5-7B-Instruct"
-    ms_repo_id: "dongjiang1989/Qwen2.5-7B-Instruct"
+    ms_repo_id: "Kubeservice/Qwen2.5-7B-Instruct"
     direction: "hf_to_ms"
     include_patterns:
       - "*.safetensors"
