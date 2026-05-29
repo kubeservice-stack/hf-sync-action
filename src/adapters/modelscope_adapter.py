@@ -211,6 +211,15 @@ class ModelScopeAdapter(PlatformAdapter):
                 repo_type="dataset" if resource_type == "dataset" else "model",
             )
         except Exception as e:
+            error_msg = str(e).lower()
+            # Detect permission errors and provide clear message
+            perm_keywords = ("does not exist", "403", "401", "forbidden")
+            if any(kw in error_msg for kw in perm_keywords):
+                raise PermissionError(
+                    f"Cannot upload to {repo_id}: you don't have write access. "
+                    f"Make sure you own this repo or use your own namespace "
+                    f"(e.g., 'your-username/model-name' instead of 'Qwen/model-name')."
+                ) from e
             logger.warning("[MS] SDK upload failed: %s, trying HF fallback", e)
             self._upload_via_hf(repo_id, local_path, remote_path, resource_type)
 
@@ -225,13 +234,25 @@ class ModelScopeAdapter(PlatformAdapter):
 
         api = HfApi(endpoint="https://modelscope.cn", token=self._token)
         repo_type = "dataset" if resource_type == "dataset" else "model"
-        with open(local_path, "rb") as f:
-            api.upload_file(
-                path_or_fileobj=f,
-                path_in_repo=remote_path,
-                repo_id=repo_id,
-                repo_type=repo_type,
-            )
+        try:
+            with open(local_path, "rb") as f:
+                api.upload_file(
+                    path_or_fileobj=f,
+                    path_in_repo=remote_path,
+                    repo_id=repo_id,
+                    repo_type=repo_type,
+                )
+        except Exception as e:
+            error_msg = str(e).lower()
+            # Detect permission errors and provide clear message
+            perm_keywords = ("does not exist", "403", "401", "forbidden")
+            if any(kw in error_msg for kw in perm_keywords):
+                raise PermissionError(
+                    f"Cannot upload to {repo_id}: you don't have write access. "
+                    f"Make sure you own this repo or use your own namespace "
+                    f"(e.g., 'your-username/model-name' instead of 'Qwen/model-name')."
+                ) from e
+            raise
 
     def create_repo_if_needed(
         self,
