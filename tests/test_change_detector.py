@@ -4,15 +4,12 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-import pytest
-
 from src.change_detector import BidirectionalChangeDetector, ChangeDetector
 from src.models import (
     ConflictStrategy,
     FileActionType,
     FileInfo,
     RepoSnapshot,
-    SyncState,
 )
 
 
@@ -25,7 +22,7 @@ def make_snapshot(
     """Helper to create a RepoSnapshot."""
     file_list = []
     total = 0
-    for path, size, sha in (files or []):
+    for path, size, sha in files or []:
         file_list.append(FileInfo(path=path, size=size, sha256=sha))
         total += size
     return RepoSnapshot(
@@ -71,10 +68,12 @@ class TestChangeDetector:
         assert actions[0].action == FileActionType.UPDATE
 
     def test_include_pattern_filter(self):
-        source = make_snapshot(files=[
-            ("model.safetensors", 1000, "aaa"),
-            ("README.md", 100, "bbb"),
-        ])
+        source = make_snapshot(
+            files=[
+                ("model.safetensors", 1000, "aaa"),
+                ("README.md", 100, "bbb"),
+            ]
+        )
         target = make_snapshot(platform="ms", files=[])
 
         detector = ChangeDetector(include_patterns=["*.safetensors"])
@@ -84,10 +83,12 @@ class TestChangeDetector:
         assert actions[0].file_path == "model.safetensors"
 
     def test_exclude_pattern_filter(self):
-        source = make_snapshot(files=[
-            ("model.safetensors", 1000, "aaa"),
-            ("old.bin", 500, "ccc"),
-        ])
+        source = make_snapshot(
+            files=[
+                ("model.safetensors", 1000, "aaa"),
+                ("old.bin", 500, "ccc"),
+            ]
+        )
         target = make_snapshot(platform="ms", files=[])
 
         detector = ChangeDetector(exclude_patterns=["*.bin"])
@@ -228,8 +229,9 @@ class TestBidirectionalChangeDetector:
         hf_to_ms, ms_to_hf = bd.detect_bidirectional(hf, ms)
 
         # One direction should win, the other should be skipped
-        hf_actions = [a for a in hf_to_ms if a.action in (FileActionType.ADD, FileActionType.UPDATE)]
-        ms_actions = [a for a in ms_to_hf if a.action in (FileActionType.ADD, FileActionType.UPDATE)]
+        actionable = (FileActionType.ADD, FileActionType.UPDATE)
+        hf_actions = [a for a in hf_to_ms if a.action in actionable]
+        ms_actions = [a for a in ms_to_hf if a.action in actionable]
 
         # At most one direction should have an active action for the same file
         total_active = len(hf_actions) + len(ms_actions)

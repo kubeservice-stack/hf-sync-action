@@ -33,9 +33,12 @@ class ModelScopeAdapter(PlatformAdapter):
         """Initialize the ModelScope HubApi."""
         try:
             from modelscope.hub.api import HubApi
+
             return HubApi()
         except ImportError:
-            logger.warning("modelscope SDK not installed; adapter will use huggingface_hub fallback")
+            logger.warning(
+                "modelscope SDK not installed; adapter will use huggingface_hub fallback"
+            )
             return None
 
     def _use_hf_fallback(self) -> bool:
@@ -52,8 +55,6 @@ class ModelScopeAdapter(PlatformAdapter):
 
         if self._use_hf_fallback():
             return self._snapshot_via_hf(repo_id, resource_type)
-
-        from modelscope.hub.api import HubApi
 
         file_list: list[FileInfo] = []
         total_size = 0
@@ -136,13 +137,14 @@ class ModelScopeAdapter(PlatformAdapter):
 
         try:
             if resource_type == "dataset":
-                from modelscope.msdatasets import MsDataset
                 # Use snapshot_download for datasets
                 from modelscope.hub.snapshot_download import dataset_snapshot_download
+
                 cache_dir = dataset_snapshot_download(repo_id, allow_patterns=[file_path])
                 src = Path(cache_dir) / file_path
             else:
                 from modelscope.hub.snapshot_download import snapshot_download
+
                 cache_dir = snapshot_download(repo_id, allow_patterns=[file_path])
                 src = Path(cache_dir) / file_path
 

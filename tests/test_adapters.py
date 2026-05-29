@@ -2,38 +2,39 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from src.models import FileInfo
 
 
 class TestHuggingFaceAdapterInit:
     def test_init_with_token(self):
-        with patch("src.adapters.huggingface_adapter.HfApi") as MockHfApi:
+        with patch("src.adapters.huggingface_adapter.HfApi") as mock_hf_api:
             from src.adapters.huggingface_adapter import HuggingFaceAdapter
+
             adapter = HuggingFaceAdapter(token="hf_test123")
-            MockHfApi.assert_called_once_with(token="hf_test123")
+            mock_hf_api.assert_called_once_with(token="hf_test123")
             assert adapter._token == "hf_test123"
 
     def test_init_without_token(self):
-        with patch("src.adapters.huggingface_adapter.HfApi") as MockHfApi:
+        with patch("src.adapters.huggingface_adapter.HfApi") as mock_hf_api:
             from src.adapters.huggingface_adapter import HuggingFaceAdapter
+
             adapter = HuggingFaceAdapter(token=None)
-            MockHfApi.assert_called_once_with(token=None)
+            mock_hf_api.assert_called_once_with(token=None)
             assert adapter._token is None
 
     def test_platform_is_hf(self):
         with patch("src.adapters.huggingface_adapter.HfApi"):
             from src.adapters.huggingface_adapter import HuggingFaceAdapter
+
             adapter = HuggingFaceAdapter()
             assert adapter.platform == "hf"
 
     def test_repo_type_mapping(self):
         with patch("src.adapters.huggingface_adapter.HfApi"):
             from src.adapters.huggingface_adapter import HuggingFaceAdapter
+
             adapter = HuggingFaceAdapter()
             assert adapter._repo_type("model") == "model"
             assert adapter._repo_type("dataset") == "dataset"
@@ -41,21 +42,36 @@ class TestHuggingFaceAdapterInit:
 
 class TestModelScopeAdapterInit:
     def test_platform_is_ms(self):
-        with patch("src.adapters.modelscope_adapter.ModelScopeAdapter._init_api", return_value=None):
+        patcher = patch(
+            "src.adapters.modelscope_adapter.ModelScopeAdapter._init_api",
+            return_value=None,
+        )
+        with patcher:
             from src.adapters.modelscope_adapter import ModelScopeAdapter
+
             adapter = ModelScopeAdapter(token=None)
             assert adapter.platform == "ms"
 
     def test_fallback_when_no_sdk(self):
-        with patch("src.adapters.modelscope_adapter.ModelScopeAdapter._init_api", return_value=None):
+        patcher = patch(
+            "src.adapters.modelscope_adapter.ModelScopeAdapter._init_api",
+            return_value=None,
+        )
+        with patcher:
             from src.adapters.modelscope_adapter import ModelScopeAdapter
+
             adapter = ModelScopeAdapter(token=None)
             assert adapter._use_hf_fallback() is True
 
     def test_no_fallback_when_sdk_present(self):
         mock_api = MagicMock()
-        with patch("src.adapters.modelscope_adapter.ModelScopeAdapter._init_api", return_value=mock_api):
+        patcher = patch(
+            "src.adapters.modelscope_adapter.ModelScopeAdapter._init_api",
+            return_value=mock_api,
+        )
+        with patcher:
             from src.adapters.modelscope_adapter import ModelScopeAdapter
+
             adapter = ModelScopeAdapter(token="ms_test")
             assert adapter._use_hf_fallback() is False
 
@@ -98,7 +114,7 @@ class TestChangeDetectorSyncedFilesState:
     def test_state_based_no_change(self):
         """File unchanged per state — should skip."""
         from src.change_detector import ChangeDetector
-        from src.models import FileActionType, RepoSnapshot, SyncState
+        from src.models import RepoSnapshot, SyncState
 
         source = RepoSnapshot(
             repo_id="test/repo",

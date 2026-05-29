@@ -106,9 +106,7 @@ def save_sync_states(states: dict[str, SyncState], state_dir: Path) -> None:
     for key, state in states.items():
         raw[key] = {
             "last_synced_commit": state.last_synced_commit,
-            "last_synced_at": (
-                state.last_synced_at.isoformat() if state.last_synced_at else None
-            ),
+            "last_synced_at": (state.last_synced_at.isoformat() if state.last_synced_at else None),
             "synced_files": state.synced_files,
         }
 

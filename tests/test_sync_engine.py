@@ -2,19 +2,13 @@
 
 from __future__ import annotations
 
-import tempfile
 from datetime import datetime, timezone
-from pathlib import Path
-from unittest.mock import MagicMock
-
-import pytest
 
 from src.config import GlobalConfig, ItemConfig, SyncConfig
 from src.models import (
     FileInfo,
     RepoSnapshot,
     SyncDirection,
-    SyncResult,
     SyncStatus,
 )
 from src.sync_engine import SyncEngine
@@ -68,10 +62,10 @@ def make_config(
         max_parallel_downloads=2,
     )
     model_items = []
-    for m in (models or [{"name": "test", "hf_repo_id": "a/b", "ms_repo_id": "a/b"}]):
+    for m in models or [{"name": "test", "hf_repo_id": "a/b", "ms_repo_id": "a/b"}]:
         model_items.append(ItemConfig(**m))
     dataset_items = []
-    for d in (datasets or []):
+    for d in datasets or []:
         dataset_items.append(ItemConfig(**d))
 
     return SyncConfig(
@@ -118,7 +112,10 @@ class TestSyncEngine:
 
         config = make_config(direction="hf_to_ms")
         engine = SyncEngine(
-            config=config, hf_adapter=hf, ms_adapter=ms, state_dir=tmp_path,
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
         )
 
         results = engine.sync_all()
@@ -135,8 +132,11 @@ class TestSyncEngine:
 
         config = make_config(direction="hf_to_ms")
         engine = SyncEngine(
-            config=config, hf_adapter=hf, ms_adapter=ms,
-            state_dir=tmp_path, dry_run=True,
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
+            dry_run=True,
         )
 
         results = engine.sync_all()
@@ -160,8 +160,11 @@ class TestSyncEngine:
             ],
         )
         engine = SyncEngine(
-            config=config, hf_adapter=hf, ms_adapter=ms,
-            state_dir=tmp_path, target_filter="model-a",
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
+            target_filter="model-a",
         )
 
         results = engine.sync_all()
@@ -181,7 +184,10 @@ class TestSyncEngine:
         ms = MockAdapter("ms")
 
         engine = SyncEngine(
-            config=config, hf_adapter=hf, ms_adapter=ms, state_dir=tmp_path,
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
         )
 
         results = engine.sync_all()
@@ -196,8 +202,11 @@ class TestSyncEngine:
 
         config = make_config(direction="hf_to_ms")
         engine = SyncEngine(
-            config=config, hf_adapter=hf, ms_adapter=ms,
-            state_dir=tmp_path, direction_override="ms_to_hf",
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
+            direction_override="ms_to_hf",
         )
 
         results = engine.sync_all()
@@ -211,7 +220,10 @@ class TestSyncEngine:
 
         config = make_config(direction="hf_to_ms")
         engine = SyncEngine(
-            config=config, hf_adapter=hf, ms_adapter=ms, state_dir=tmp_path,
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
         )
 
         engine.sync_all()

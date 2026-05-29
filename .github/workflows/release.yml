@@ -1,0 +1,140 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0, v1.1.0)'
+        required: true
+        type: string
+      update_major_tag:
+        description: 'Update major version tag (e.g., v1)'
+        type: boolean
+        default: true
+
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  validate:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Run tests
+        run: pytest tests/ -v --tb=short
+
+      - name: Validate action files
+        run: |
+          test -f action.yml
+          test -f Dockerfile
+          test -f entrypoint.sh
+          test -f LICENSE
+          test -f README.md
+          echo "All required files present"
+
+  release:
+    name: Create Release
+    needs: validate
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create tag
+        run: |
+          VERSION="${{ inputs.version }}"
+          # Ensure version starts with 'v'
+          if [[ ! "$VERSION" == v* ]]; then
+            VERSION="v${VERSION}"
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git tag -a "$VERSION" -m "Release $VERSION"
+          git push origin "$VERSION"
+
+          echo "Created tag: $VERSION"
+
+      - name: Update major version tag
+        if: inputs.update_major_tag
+        run: |
+          VERSION="${{ inputs.version }}"
+          if [[ ! "$VERSION" == v* ]]; then
+            VERSION="v${VERSION}"
+          fi
+
+          # Extract major version (e.g., v1.2.3 -> v1)
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+
+          git tag -f "$MAJOR"
+          git push -f origin "$MAJOR"
+
+          echo "Updated major tag: $MAJOR -> $VERSION"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.version }}
+          name: ${{ inputs.version }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  docker:
+    name: Build & Push Docker Image
+    needs: validate
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -1,0 +1,90 @@
+name: Bug Report
+description: Report a bug or unexpected behavior in HF-MS Sync
+title: "[Bug]: "
+labels: ["bug"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the information below.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of what the bug is.
+      placeholder: "When I run the sync, it fails with..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      description: What should have happened instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce this issue?
+      placeholder: |
+        1. Create config with...
+        2. Run workflow...
+        3. See error...
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration
+      description: |
+        Your `sync_config.yaml` (redact any sensitive tokens):
+      render: yaml
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Relevant log output from the GitHub Actions run:
+      render: text
+
+  - type: dropdown
+    id: direction
+    attributes:
+      label: Sync direction
+      options:
+        - hf_to_ms
+        - ms_to_hf
+        - bidirectional
+    validations:
+      required: true
+
+  - type: dropdown
+    id: version
+    attributes:
+      label: Action version
+      options:
+        - v1 (latest)
+        - main branch
+        - specific tag (specify below)
+    validations:
+      required: true
+
+  - type: input
+    id: runner
+    attributes:
+      label: Runner OS
+      placeholder: "ubuntu-latest, ubuntu-22.04, etc."
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Any other information that might help.
