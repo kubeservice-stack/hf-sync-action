@@ -256,7 +256,10 @@ class ModelScopeAdapter(PlatformAdapter):
 
             logger.info("[MS] Creating repo %s (%s)", repo_id, resource_type)
             if self._api:
-                self._api.create_repo(repo_id)
+                self._api.create_repo(
+                    repo_id=repo_id,
+                    repo_type="dataset" if resource_type == "dataset" else "model",
+                )
             else:
                 api.create_repo(
                     repo_id=repo_id,

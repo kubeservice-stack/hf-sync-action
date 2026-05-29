@@ -415,7 +415,7 @@ class SyncEngine:
             hf_state.last_synced_commit = hf_snapshot.last_commit_hash
         hf_state.last_synced_at = now
         for fp in synced_files:
-            hf_file = hf_file_map.get(fp)
+            hf_file = hf_file_map.get(fp) or ms_file_map.get(fp)
             if hf_file and hf_file.sha256:
                 hf_state.synced_files[fp] = hf_file.sha256
         self.states[hf_key] = hf_state
@@ -427,7 +427,7 @@ class SyncEngine:
             ms_state.last_synced_commit = ms_snapshot.last_commit_hash
         ms_state.last_synced_at = now
         for fp in synced_files:
-            ms_file = ms_file_map.get(fp)
+            ms_file = ms_file_map.get(fp) or hf_file_map.get(fp)
             if ms_file and ms_file.sha256:
                 ms_state.synced_files[fp] = ms_file.sha256
         self.states[ms_key] = ms_state
