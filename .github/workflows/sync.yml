@@ -22,9 +22,81 @@ on:
         description: 'Dry run (detect changes without transferring)'
         type: boolean
         default: false
+      skip_preflight:
+        description: 'Skip preflight checks (lint + unit tests)'
+        type: boolean
+        default: false
 
 jobs:
+  # ── Preflight: lint + unit tests ─────────────────────────────────────
+  preflight:
+    name: Preflight Checks
+    if: inputs.skip_preflight != true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Code check (ruff lint)
+        run: |
+          echo "━━━ Ruff Lint ━━━"
+          ruff check src/ tests/
+          echo "Lint passed"
+
+      - name: Code check (ruff format)
+        run: |
+          echo "━━━ Ruff Format ━━━"
+          ruff format --check src/ tests/
+          echo "Format check passed"
+
+      - name: Unit tests
+        run: |
+          echo "━━━ Running unit tests ━━━"
+          pytest tests/ -v --tb=short -x
+          echo "All unit tests passed"
+
+      - name: Config validation
+        run: |
+          echo "━━━ Validating sync config ━━━"
+          python3 -c "
+          from src.config import load_config
+          config = load_config('config/sync_config.yaml')
+          models = [m for m in config.models if m.enabled]
+          datasets = [d for d in config.datasets if d.enabled]
+          print(f'Config valid: {len(models)} model(s), {len(datasets)} dataset(s)')
+          print(f'Direction: {config.global_config.sync_direction.value}')
+          print(f'Strategy:  {config.global_config.conflict_strategy.value}')
+          for m in models:
+              print(f'  model:   {m.name} ({m.hf_repo_id})')
+          for d in datasets:
+              print(f'  dataset: {d.name} ({d.hf_repo_id})')
+          "
+
+      - name: Adapter import check
+        run: |
+          echo "━━━ Verifying module imports ━━━"
+          python3 -c "
+          from src.adapters.huggingface_adapter import HuggingFaceAdapter
+          from src.adapters.modelscope_adapter import ModelScopeAdapter
+          from src.change_detector import ChangeDetector, BidirectionalChangeDetector
+          from src.sync_engine import SyncEngine
+          from src.report import print_summary, generate_json_report
+          print('All module imports OK')
+          "
+
+  # ── Sync ─────────────────────────────────────────────────────────────
   sync:
+    needs: preflight
+    # Run even if preflight was skipped (skip_preflight=true)
+    if: always() && (needs.preflight.result == 'success' || needs.preflight.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:

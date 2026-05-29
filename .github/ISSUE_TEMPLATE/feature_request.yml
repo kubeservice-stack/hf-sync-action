@@ -1,0 +1,55 @@
+name: Feature Request
+description: Suggest a new feature or enhancement for HF-MS Sync
+title: "[Feature]: "
+labels: ["enhancement"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea for improving HF-MS Sync? We'd love to hear it!
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What problem are you trying to solve? What's the use case?
+      placeholder: "I need to sync models but..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How do you think this should be solved?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Have you considered other approaches?
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - New sync direction or mode
+        - Performance improvement
+        - Better error handling
+        - Configuration enhancement
+        - Documentation
+        - CI/CD integration
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Mockups, links, or any other relevant information.

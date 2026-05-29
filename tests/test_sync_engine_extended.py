@@ -4,17 +4,12 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
-from pathlib import Path
-
-import pytest
 
 from src.config import GlobalConfig, ItemConfig, SyncConfig
 from src.models import (
     FileInfo,
     RepoSnapshot,
     SyncDirection,
-    SyncResult,
-    SyncState,
     SyncStatus,
 )
 from src.sync_engine import SyncEngine
@@ -111,7 +106,10 @@ class TestMSToHFDirection:
 
         config = make_config(direction="ms_to_hf")
         engine = SyncEngine(
-            config=config, hf_adapter=hf, ms_adapter=ms, state_dir=tmp_path,
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
         )
 
         results = engine.sync_all()
@@ -133,7 +131,10 @@ class TestMSToHFDirection:
 
         config = make_config(direction="ms_to_hf")
         engine = SyncEngine(
-            config=config, hf_adapter=hf, ms_adapter=ms, state_dir=tmp_path,
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
         )
 
         results = engine.sync_all()
@@ -150,7 +151,10 @@ class TestMSToHFDirection:
 
         config = make_config(direction="ms_to_hf")
         engine = SyncEngine(
-            config=config, hf_adapter=hf, ms_adapter=ms, state_dir=tmp_path,
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
         )
 
         results = engine.sync_all()
@@ -172,7 +176,10 @@ class TestBidirectionalSync:
 
         config = make_config(direction="bidirectional")
         engine = SyncEngine(
-            config=config, hf_adapter=hf, ms_adapter=ms, state_dir=tmp_path,
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
         )
 
         results = engine.sync_all()
@@ -199,7 +206,10 @@ class TestBidirectionalSync:
 
         config = make_config(direction="bidirectional")
         engine = SyncEngine(
-            config=config, hf_adapter=hf, ms_adapter=ms, state_dir=tmp_path,
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
         )
 
         results = engine.sync_all()
@@ -227,7 +237,10 @@ class TestErrorHandling:
 
         config = make_config(direction="hf_to_ms")
         engine = SyncEngine(
-            config=config, hf_adapter=hf, ms_adapter=ms, state_dir=tmp_path,
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
         )
 
         results = engine.sync_all()
@@ -246,7 +259,10 @@ class TestErrorHandling:
 
         config = make_config(direction="hf_to_ms")
         engine = SyncEngine(
-            config=config, hf_adapter=hf, ms_adapter=ms, state_dir=tmp_path,
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
         )
 
         results = engine.sync_all()
@@ -265,7 +281,10 @@ class TestErrorHandling:
 
         config = make_config(direction="hf_to_ms")
         engine = SyncEngine(
-            config=config, hf_adapter=hf, ms_adapter=ms, state_dir=tmp_path,
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
         )
 
         results = engine.sync_all()
@@ -282,7 +301,10 @@ class TestErrorHandling:
 
         config = make_config(direction="hf_to_ms")
         engine = SyncEngine(
-            config=config, hf_adapter=hf, ms_adapter=ms, state_dir=tmp_path,
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
         )
 
         results = engine.sync_all()
@@ -301,7 +323,10 @@ class TestResultsJson:
 
         config = make_config(direction="hf_to_ms")
         engine = SyncEngine(
-            config=config, hf_adapter=hf, ms_adapter=ms, state_dir=tmp_path,
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
         )
 
         engine.sync_all()
@@ -325,8 +350,11 @@ class TestResultsJson:
 
         config = make_config(direction="hf_to_ms")
         engine = SyncEngine(
-            config=config, hf_adapter=hf, ms_adapter=ms,
-            state_dir=tmp_path, dry_run=True,
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
+            dry_run=True,
         )
         engine.sync_all()
 
@@ -348,7 +376,10 @@ class TestStateSyncedFiles:
 
         config = make_config(direction="hf_to_ms")
         engine = SyncEngine(
-            config=config, hf_adapter=hf, ms_adapter=ms, state_dir=tmp_path,
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
         )
         engine.sync_all()
 
@@ -370,14 +401,20 @@ class TestStateSyncedFiles:
 
         config = make_config(direction="hf_to_ms")
         engine = SyncEngine(
-            config=config, hf_adapter=hf, ms_adapter=ms, state_dir=tmp_path,
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
         )
         engine.sync_all()
 
         # Second run: add a new file
         hf._files["b.json"] = b"bbb"
         engine2 = SyncEngine(
-            config=config, hf_adapter=hf, ms_adapter=ms, state_dir=tmp_path,
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
         )
         engine2.sync_all()
 
@@ -392,7 +429,6 @@ class TestStateSyncedFiles:
 
 class TestCLIParsing:
     def test_dry_run_parsing(self):
-        from src.sync_engine import main
         # We can't easily test main() without mocking, but verify the parsing logic
         assert "true".lower() in ("true", "1", "yes")
         assert "false".lower() not in ("true", "1", "yes")
@@ -427,7 +463,10 @@ class TestDatasetSync:
             datasets=[{"name": "ds1", "hf_repo_id": "org/ds", "ms_repo_id": "org/ds"}],
         )
         engine = SyncEngine(
-            config=config, hf_adapter=hf, ms_adapter=ms, state_dir=tmp_path,
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
         )
 
         results = engine.sync_all()
@@ -455,7 +494,10 @@ class TestMixedSync:
             datasets=[{"name": "d1", "hf_repo_id": "a/d1", "ms_repo_id": "a/d1"}],
         )
         engine = SyncEngine(
-            config=config, hf_adapter=hf, ms_adapter=ms, state_dir=tmp_path,
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
         )
 
         results = engine.sync_all()
@@ -474,7 +516,10 @@ class TestEmptySync:
         ms = MockAdapter("ms")
 
         engine = SyncEngine(
-            config=config, hf_adapter=hf, ms_adapter=ms, state_dir=tmp_path,
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
         )
         results = engine.sync_all()
         assert results == []
@@ -486,8 +531,131 @@ class TestEmptySync:
 
         config = make_config(direction="hf_to_ms")
         engine = SyncEngine(
-            config=config, hf_adapter=hf, ms_adapter=ms,
-            state_dir=tmp_path, target_filter="nonexistent",
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
+            target_filter="nonexistent",
         )
         results = engine.sync_all()
         assert results == []
+
+
+# ── GitHub Outputs ──────────────────────────────────────────────────
+
+
+class TestGitHubOutputs:
+    def test_writes_github_output(self, tmp_path, monkeypatch):
+        """sync_all() should write outputs to $GITHUB_OUTPUT."""
+        output_file = tmp_path / "github_output"
+        output_file.write_text("")
+        monkeypatch.setenv("GITHUB_OUTPUT", str(output_file))
+
+        hf = MockAdapter("hf")
+        hf._files = {"model.bin": b"weights_data", "config.json": b"{}"}
+        ms = MockAdapter("ms")
+        ms._files = {}
+
+        config = make_config(direction="hf_to_ms")
+        engine = SyncEngine(
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
+        )
+        engine.sync_all()
+
+        content = output_file.read_text()
+        assert "sync_status=success" in content
+        assert "files_synced=2" in content
+        assert "bytes_transferred=" in content
+
+    def test_github_output_partial(self, tmp_path, monkeypatch):
+        """Partial failure should write sync_status=partial."""
+        output_file = tmp_path / "github_output"
+        output_file.write_text("")
+        monkeypatch.setenv("GITHUB_OUTPUT", str(output_file))
+
+        hf = MockAdapter("hf")
+        hf._files = {"good.json": b"ok", "bad.bin": b"fail"}
+        ms = MockAdapter("ms")
+        ms._files = {}
+        ms._should_fail_upload = {"bad.bin"}
+
+        config = make_config(direction="hf_to_ms")
+        engine = SyncEngine(
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
+        )
+        engine.sync_all()
+
+        content = output_file.read_text()
+        assert "sync_status=partial" in content
+
+    def test_github_output_failed(self, tmp_path, monkeypatch):
+        """All failures should write sync_status=failed."""
+        output_file = tmp_path / "github_output"
+        output_file.write_text("")
+        monkeypatch.setenv("GITHUB_OUTPUT", str(output_file))
+
+        hf = MockAdapter("hf")
+        hf._snapshot_fail = True
+        ms = MockAdapter("ms")
+
+        config = make_config(direction="hf_to_ms")
+        engine = SyncEngine(
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
+        )
+        engine.sync_all()
+
+        content = output_file.read_text()
+        assert "sync_status=failed" in content
+
+    def test_no_github_output_env(self, tmp_path, monkeypatch):
+        """Should not crash when GITHUB_OUTPUT is not set."""
+        monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+
+        hf = MockAdapter("hf")
+        hf._files = {"config.json": b"{}"}
+        ms = MockAdapter("ms")
+        ms._files = {}
+
+        config = make_config(direction="hf_to_ms")
+        engine = SyncEngine(
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
+        )
+        # Should not raise
+        results = engine.sync_all()
+        assert results[0].status == SyncStatus.SUCCESS
+
+    def test_github_output_empty_config(self, tmp_path, monkeypatch):
+        """Empty config should still write GitHub outputs with zero counters."""
+        output_file = tmp_path / "github_output"
+        output_file.write_text("")
+        monkeypatch.setenv("GITHUB_OUTPUT", str(output_file))
+
+        hf = MockAdapter("hf")
+        ms = MockAdapter("ms")
+
+        config = make_config(direction="hf_to_ms", models=[], datasets=[])
+        engine = SyncEngine(
+            config=config,
+            hf_adapter=hf,
+            ms_adapter=ms,
+            state_dir=tmp_path,
+        )
+        results = engine.sync_all()
+
+        assert results == []
+        content = output_file.read_text()
+        assert "sync_status=success" in content
+        assert "files_synced=0" in content
+        assert "bytes_transferred=0" in content

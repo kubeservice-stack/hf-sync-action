@@ -84,18 +84,20 @@ def generate_json_report(results: list[SyncResult]) -> str:
     """Generate a JSON report of sync results."""
     data = []
     for r in results:
-        data.append({
-            "item_name": r.item_name,
-            "resource_type": r.resource_type,
-            "direction": r.direction,
-            "status": r.status.value,
-            "files_synced": len(r.files_synced),
-            "files_skipped": len(r.files_skipped),
-            "files_failed": len(r.files_failed),
-            "bytes_transferred": r.bytes_transferred,
-            "duration_seconds": round(r.duration_seconds, 2),
-            "error_message": r.error_message,
-        })
+        data.append(
+            {
+                "item_name": r.item_name,
+                "resource_type": r.resource_type,
+                "direction": r.direction,
+                "status": r.status.value,
+                "files_synced": len(r.files_synced),
+                "files_skipped": len(r.files_skipped),
+                "files_failed": len(r.files_failed),
+                "bytes_transferred": r.bytes_transferred,
+                "duration_seconds": round(r.duration_seconds, 2),
+                "error_message": r.error_message,
+            }
+        )
     return json.dumps(data, indent=2, ensure_ascii=False)
 
 
@@ -114,18 +116,20 @@ def main() -> None:
         # Reconstruct minimal results for display
         results = []
         for r in raw:
-            results.append(SyncResult(
-                item_name=r["item_name"],
-                resource_type=r["resource_type"],
-                direction=r["direction"],
-                status=SyncStatus(r["status"]),
-                files_synced=[""] * r.get("files_synced", 0),
-                files_skipped=[""] * r.get("files_skipped", 0),
-                files_failed=[""] * r.get("files_failed", 0),
-                bytes_transferred=r.get("bytes_transferred", 0),
-                duration_seconds=r.get("duration_seconds", 0),
-                error_message=r.get("error_message"),
-            ))
+            results.append(
+                SyncResult(
+                    item_name=r["item_name"],
+                    resource_type=r["resource_type"],
+                    direction=r["direction"],
+                    status=SyncStatus(r["status"]),
+                    files_synced=[""] * r.get("files_synced", 0),
+                    files_skipped=[""] * r.get("files_skipped", 0),
+                    files_failed=[""] * r.get("files_failed", 0),
+                    bytes_transferred=r.get("bytes_transferred", 0),
+                    duration_seconds=r.get("duration_seconds", 0),
+                    error_message=r.get("error_message"),
+                )
+            )
         print_summary(results)
     else:
         print("No previous results found.")

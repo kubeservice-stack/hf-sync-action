@@ -1,6 +1,6 @@
 name: 'HF-MS Sync'
 description: 'Bidirectional sync of AI models and datasets between HuggingFace and ModelScope. Supports scheduled, manual, and webhook-triggered sync with conflict resolution.'
-author: 'dongjiang'
+author: 'kubeservice-stack'
 
 branding:
   icon: 'refresh-cw'
@@ -27,6 +27,18 @@ inputs:
     description: 'Logging level: DEBUG | INFO | WARNING | ERROR'
     required: false
     default: 'INFO'
+  state_dir:
+    description: 'Directory for sync state persistence (used across runs)'
+    required: false
+    default: '.sync_state'
+  hf_token:
+    description: 'HuggingFace API token (can also be set via env HF_TOKEN)'
+    required: false
+    default: ''
+  modelscope_token:
+    description: 'ModelScope API token (can also be set via env MODELSCOPE_TOKEN)'
+    required: false
+    default: ''
 
 outputs:
   sync_status:
@@ -39,13 +51,3 @@ outputs:
 runs:
   using: 'docker'
   image: 'Dockerfile'
-  args:
-    - '--config'
-    - ${{ inputs.config }}
-    - '--direction'
-    - ${{ inputs.direction }}
-    - '--dry-run=${{ inputs.dry_run }}'
-    - '--target'
-    - ${{ inputs.target }}
-    - '--log-level'
-    - ${{ inputs.log_level }}

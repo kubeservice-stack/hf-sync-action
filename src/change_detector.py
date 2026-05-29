@@ -64,34 +64,44 @@ class ChangeDetector:
             if self.max_file_size_bytes and src_file.size > self.max_file_size_bytes:
                 logger.warning(
                     "Skipping %s: size %d exceeds max %d",
-                    path, src_file.size, self.max_file_size_bytes,
+                    path,
+                    src_file.size,
+                    self.max_file_size_bytes,
                 )
-                actions.append(FileAction(
-                    action=FileActionType.SKIP,
-                    file_path=path,
-                    source_platform=source_snapshot.platform,
-                    size=src_file.size,
-                    reason="exceeds max file size",
-                ))
+                actions.append(
+                    FileAction(
+                        action=FileActionType.SKIP,
+                        file_path=path,
+                        source_platform=source_snapshot.platform,
+                        size=src_file.size,
+                        reason="exceeds max file size",
+                    )
+                )
                 continue
 
             tgt_file = target_map.get(path)
 
             if tgt_file is None:
                 # Source has it, target doesn't → ADD
-                actions.append(FileAction(
-                    action=FileActionType.ADD,
-                    file_path=path,
-                    source_platform=source_snapshot.platform,
-                    size=src_file.size,
-                    reason="new file on source",
-                ))
+                actions.append(
+                    FileAction(
+                        action=FileActionType.ADD,
+                        file_path=path,
+                        source_platform=source_snapshot.platform,
+                        size=src_file.size,
+                        reason="new file on source",
+                    )
+                )
             elif self._files_differ(src_file, tgt_file, source_snapshot.platform, sync_state):
                 # Both have it but content differs → UPDATE or SKIP
                 action = self._resolve_conflict(
-                    path, src_file, tgt_file,
-                    source_snapshot.platform, target_snapshot.platform if target_snapshot else "ms",
-                    source_snapshot, target_snapshot,
+                    path,
+                    src_file,
+                    tgt_file,
+                    source_snapshot.platform,
+                    target_snapshot.platform if target_snapshot else "ms",
+                    source_snapshot,
+                    target_snapshot,
                 )
                 if action:
                     actions.append(action)
@@ -103,13 +113,15 @@ class ChangeDetector:
                 if path not in source_map:
                     if not matches_patterns(path, self.include_patterns, self.exclude_patterns):
                         continue
-                    actions.append(FileAction(
-                        action=FileActionType.DELETE,
-                        file_path=path,
-                        source_platform=source_snapshot.platform,
-                        size=target_map[path].size,
-                        reason="orphaned on target",
-                    ))
+                    actions.append(
+                        FileAction(
+                            action=FileActionType.DELETE,
+                            file_path=path,
+                            source_platform=source_snapshot.platform,
+                            size=target_map[path].size,
+                            reason="orphaned on target",
+                        )
+                    )
 
         add_count = sum(1 for a in actions if a.action == FileActionType.ADD)
         update_count = sum(1 for a in actions if a.action == FileActionType.UPDATE)
@@ -118,7 +130,10 @@ class ChangeDetector:
 
         logger.info(
             "Change detection: %d add, %d update, %d delete, %d skip",
-            add_count, update_count, delete_count, skip_count,
+            add_count,
+            update_count,
+            delete_count,
+            skip_count,
         )
 
         return actions
@@ -173,8 +188,8 @@ class ChangeDetector:
         if strategy == ConflictStrategy.NEWER_WINS:
             # Compare last_modified timestamps
             src_time = src_file.last_modified or source_snapshot.last_modified
-            tgt_time = (
-                tgt_file.last_modified or (target_snapshot.last_modified if target_snapshot else None)
+            tgt_time = tgt_file.last_modified or (
+                target_snapshot.last_modified if target_snapshot else None
             )
 
             if src_time and tgt_time:
@@ -225,7 +240,8 @@ class BidirectionalChangeDetector:
 
     def __init__(self, conflict_strategy: ConflictStrategy, **kwargs) -> None:
         self._detector = ChangeDetector(
-            conflict_strategy=conflict_strategy, **kwargs,
+            conflict_strategy=conflict_strategy,
+            **kwargs,
         )
 
     def detect_bidirectional(
@@ -260,8 +276,9 @@ class BidirectionalChangeDetector:
         ms_to_hf: list[FileAction],
     ) -> None:
         """Remove conflicting actions for the same file."""
-        hf_files = {a.file_path for a in hf_to_ms if a.action in (FileActionType.ADD, FileActionType.UPDATE)}
-        ms_files = {a.file_path for a in ms_to_hf if a.action in (FileActionType.ADD, FileActionType.UPDATE)}
+        actionable = (FileActionType.ADD, FileActionType.UPDATE)
+        hf_files = {a.file_path for a in hf_to_ms if a.action in actionable}
+        ms_files = {a.file_path for a in ms_to_hf if a.action in actionable}
 
         conflicts = hf_files & ms_files
         if not conflicts:
@@ -277,7 +294,8 @@ class BidirectionalChangeDetector:
             # (This is a simple default; real resolution uses the conflict strategy)
             for action in ms_to_hf:
                 if action.file_path == path and action.action in (
-                    FileActionType.ADD, FileActionType.UPDATE,
+                    FileActionType.ADD,
+                    FileActionType.UPDATE,
                 ):
                     action.action = FileActionType.SKIP
                     action.reason = "bidirectional conflict (resolved: HF wins)"

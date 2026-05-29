@@ -1,0 +1,151 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Ruff check
+        run: ruff check src/ tests/
+
+      - name: Ruff format check
+        run: ruff format --check src/ tests/
+
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Run tests
+        run: pytest tests/ -v --tb=short --cov=src --cov-report=term-missing
+
+  action-validation:
+    name: Validate Action
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Validate action.yml
+        run: |
+          echo "━━━ Checking action.yml ━━━"
+          # action.yml must exist
+          test -f action.yml || { echo "FAIL: action.yml not found"; exit 1; }
+
+          # Must have required fields
+          grep -q "^name:" action.yml || { echo "FAIL: missing name"; exit 1; }
+          grep -q "^description:" action.yml || { echo "FAIL: missing description"; exit 1; }
+          grep -q "^inputs:" action.yml || { echo "FAIL: missing inputs"; exit 1; }
+          grep -q "^outputs:" action.yml || { echo "FAIL: missing outputs"; exit 1; }
+          grep -q "using: 'docker'" action.yml || { echo "FAIL: not a docker action"; exit 1; }
+          grep -q "image: 'Dockerfile'" action.yml || { echo "FAIL: missing image"; exit 1; }
+
+          echo "action.yml validation PASSED"
+
+      - name: Validate Dockerfile
+        run: |
+          echo "━━━ Checking Dockerfile ━━━"
+          test -f Dockerfile || { echo "FAIL: Dockerfile not found"; exit 1; }
+          grep -q "ENTRYPOINT" Dockerfile || { echo "FAIL: missing ENTRYPOINT"; exit 1; }
+          grep -q "entrypoint.sh" Dockerfile || { echo "FAIL: missing entrypoint.sh"; exit 1; }
+
+          echo "Dockerfile validation PASSED"
+
+      - name: Validate entrypoint.sh
+        run: |
+          echo "━━━ Checking entrypoint.sh ━━━"
+          test -f entrypoint.sh || { echo "FAIL: entrypoint.sh not found"; exit 1; }
+          test -x entrypoint.sh || { echo "FAIL: entrypoint.sh not executable"; exit 1; }
+          head -1 entrypoint.sh | grep -q "^#!/bin/bash" || { echo "FAIL: missing shebang"; exit 1; }
+          grep -q "GITHUB_OUTPUT" entrypoint.sh || { echo "FAIL: missing GITHUB_OUTPUT"; exit 1; }
+
+          echo "entrypoint.sh validation PASSED"
+
+      - name: Validate LICENSE
+        run: |
+          test -f LICENSE || { echo "FAIL: LICENSE not found"; exit 1; }
+          echo "LICENSE validation PASSED"
+
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: [lint, test, action-validation]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Build Docker image
+        run: docker build -t hf-ms-sync:ci .
+
+      - name: Verify Docker image
+        run: |
+          # Verify the image has the entrypoint (override ENTRYPOINT to run cat)
+          docker run --rm --entrypoint cat hf-ms-sync:ci /entrypoint.sh > /dev/null
+          echo "Docker image built and verified"
+
+      - name: Dry-run test in Docker
+        run: |
+          # Use ci_smoke_test.yaml (empty models/datasets) so the full
+          # dry-run flow completes without real API tokens.
+          docker run --rm \
+            -v ${{ github.workspace }}/config:/app/config \
+            -e INPUT_CONFIG=config/ci_smoke_test.yaml \
+            -e INPUT_DIRECTION=hf_to_ms \
+            -e INPUT_DRY_RUN=true \
+            -e INPUT_LOG_LEVEL=INFO \
+            -e INPUT_STATE_DIR=/tmp/sync_state \
+            -e INPUT_TARGET= \
+            -e INPUT_HF_TOKEN= \
+            -e INPUT_MODELSCOPE_TOKEN= \
+            -e GITHUB_OUTPUT=/tmp/github_output \
+            -e GITHUB_STEP_SUMMARY=/tmp/github_step_summary \
+            hf-ms-sync:ci 2>&1 | tee /tmp/docker_output.log
+
+          # Verify entrypoint started and parsed arguments correctly
+          grep -q "Config:.*ci_smoke_test.yaml" /tmp/docker_output.log \
+            || { echo "FAIL: entrypoint did not print config summary"; exit 1; }
+          grep -q "Dry run:.*true" /tmp/docker_output.log \
+            || { echo "FAIL: dry_run flag not propagated to entrypoint"; exit 1; }
+          grep -q "Direction:.*hf_to_ms" /tmp/docker_output.log \
+            || { echo "FAIL: direction flag not propagated"; exit 1; }
+          grep -q "No sync items configured" /tmp/docker_output.log \
+            || { echo "FAIL: sync engine did not reach empty-config path"; exit 1; }
+
+          echo "Docker smoke test PASSED"

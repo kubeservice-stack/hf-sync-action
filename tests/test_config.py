@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import tempfile
-from pathlib import Path
-
 import pytest
 import yaml
 
@@ -85,9 +82,7 @@ class TestLoadConfig:
     def test_load_valid_yaml(self, tmp_path):
         config_data = {
             "global": {"sync_direction": "hf_to_ms"},
-            "models": [
-                {"name": "test", "hf_repo_id": "a/b", "ms_repo_id": "a/b"}
-            ],
+            "models": [{"name": "test", "hf_repo_id": "a/b", "ms_repo_id": "a/b"}],
         }
         config_file = tmp_path / "config.yaml"
         config_file.write_text(yaml.dump(config_data))

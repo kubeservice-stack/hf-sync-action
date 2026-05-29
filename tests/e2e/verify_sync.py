@@ -41,13 +41,9 @@ def list_files(
             if not path:
                 continue
             # Apply include/exclude filters
-            if include_patterns and not any(
-                fnmatch.fnmatch(path, p) for p in include_patterns
-            ):
+            if include_patterns and not any(fnmatch.fnmatch(path, p) for p in include_patterns):
                 continue
-            if exclude_patterns and any(
-                fnmatch.fnmatch(path, p) for p in exclude_patterns
-            ):
+            if exclude_patterns and any(fnmatch.fnmatch(path, p) for p in exclude_patterns):
                 continue
             size = getattr(item, "size", 0) or 0
             result[path] = size
@@ -69,17 +65,29 @@ def verify_sync(
 
     Returns (success, message).
     """
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"E2E Verification: {hf_repo} <-> {ms_repo}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     # List files from both platforms
     print(f"\n[1] Fetching HuggingFace file list: {hf_repo}")
-    hf_files = list_files(hf_repo, "https://huggingface.co", hf_token, include_patterns, exclude_patterns)
+    hf_files = list_files(
+        hf_repo,
+        "https://huggingface.co",
+        hf_token,
+        include_patterns,
+        exclude_patterns,
+    )
     print(f"    Found {len(hf_files)} files")
 
     print(f"\n[2] Fetching ModelScope file list: {ms_repo}")
-    ms_files = list_files(ms_repo, "https://modelscope.cn", ms_token, include_patterns, exclude_patterns)
+    ms_files = list_files(
+        ms_repo,
+        "https://modelscope.cn",
+        ms_token,
+        include_patterns,
+        exclude_patterns,
+    )
     print(f"    Found {len(ms_files)} files")
 
     if not hf_files and not ms_files:
@@ -99,24 +107,24 @@ def verify_sync(
             size_mismatch.append((path, hf_size, ms_size))
 
     # Report
-    print(f"\n[3] Comparison Results:")
+    print("\n[3] Comparison Results:")
     print(f"    Common files:       {len(common)}")
     print(f"    Only on HuggingFace: {len(hf_only)}")
     print(f"    Only on ModelScope:  {len(ms_only)}")
     print(f"    Size mismatches:     {len(size_mismatch)}")
 
     if hf_only:
-        print(f"\n    Files only on HuggingFace:")
+        print("\n    Files only on HuggingFace:")
         for f in sorted(hf_only):
             print(f"      - {f}")
 
     if ms_only:
-        print(f"\n    Files only on ModelScope:")
+        print("\n    Files only on ModelScope:")
         for f in sorted(ms_only):
             print(f"      - {f}")
 
     if size_mismatch:
-        print(f"\n    Size mismatches:")
+        print("\n    Size mismatches:")
         for path, hf_s, ms_s in size_mismatch:
             print(f"      - {path}: HF={hf_s} MS={ms_s}")
 
@@ -151,6 +159,7 @@ def main():
     args = parser.parse_args()
 
     import os
+
     hf_token = args.hf_token or os.environ.get("HF_TOKEN")
     ms_token = args.ms_token or os.environ.get("MODELSCOPE_TOKEN")
 
