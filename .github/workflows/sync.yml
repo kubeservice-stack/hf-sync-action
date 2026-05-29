@@ -1,0 +1,141 @@
+name: HF-MS Sync
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'        # Every 6 hours
+  workflow_dispatch:
+    inputs:
+      sync_target:
+        description: 'Specific item name to sync (leave empty for all)'
+        required: false
+        default: ''
+      direction:
+        description: 'Override sync direction'
+        type: choice
+        options:
+          - config
+          - hf_to_ms
+          - ms_to_hf
+          - bidirectional
+        default: config
+      dry_run:
+        description: 'Dry run (detect changes without transferring)'
+        type: boolean
+        default: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install git-lfs
+        run: |
+          sudo apt-get update && sudo apt-get install -y git-lfs
+          git lfs install
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Restore sync state
+        uses: actions/download-artifact@v4
+        with:
+          name: sync-state
+          path: .sync_state/
+        continue-on-error: true
+
+      - name: Run sync
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          MODELSCOPE_TOKEN: ${{ secrets.MODELSCOPE_TOKEN }}
+        run: |
+          ARGS="--config config/sync_config.yaml --state-dir .sync_state/"
+
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            ARGS="$ARGS --dry-run true"
+          fi
+
+          if [ -n "${{ inputs.direction }}" ] && [ "${{ inputs.direction }}" != "config" ]; then
+            ARGS="$ARGS --direction ${{ inputs.direction }}"
+          fi
+
+          if [ -n "${{ inputs.sync_target }}" ]; then
+            ARGS="$ARGS --target ${{ inputs.sync_target }}"
+          fi
+
+          python -m src.sync_engine $ARGS
+
+      - name: Save sync state
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sync-state
+          path: .sync_state/
+          retention-days: 30
+          overwrite: true
+
+      - name: Generate report
+        if: always()
+        run: |
+          python -c "
+          from src.report import print_summary
+          import json, os
+          from pathlib import Path
+
+          state_dir = Path('.sync_state')
+          result_file = state_dir / 'last_results.json'
+          if result_file.exists():
+              from src.models import SyncResult, SyncStatus
+              with open(result_file) as f:
+                  raw = json.load(f)
+              results = []
+              for r in raw:
+                  results.append(SyncResult(
+                      item_name=r['item_name'],
+                      resource_type=r['resource_type'],
+                      direction=r['direction'],
+                      status=SyncStatus(r['status']),
+                      files_synced=[''] * r.get('files_synced', 0),
+                      files_skipped=[''] * r.get('files_skipped', 0),
+                      files_failed=[''] * r.get('files_failed', 0),
+                      bytes_transferred=r.get('bytes_transferred', 0),
+                      duration_seconds=r.get('duration_seconds', 0),
+                      error_message=r.get('error_message'),
+                  ))
+              print_summary(results)
+          else:
+              print('No results file found - check sync logs above.')
+          " >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `Sync failure on ${new Date().toISOString().split('T')[0]}`;
+            const body = `## Sync Failure\n\nThe scheduled sync workflow failed.\n\n[View run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`;
+
+            // Check if there's already an open issue
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'sync-failure'
+            });
+
+            if (issues.data.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['sync-failure']
+              });
+            }

@@ -1,0 +1,30 @@
+# Example 2: Bidirectional Sync
+#
+# Keep HuggingFace and ModelScope repos in sync in both directions.
+# Use case: team publishes on both platforms simultaneously.
+#
+# Conflict resolution: newer_wins (most recently modified file wins).
+
+global:
+  sync_direction: "bidirectional"
+  conflict_strategy: "newer_wins"
+  max_file_size_gb: 100
+  retry_attempts: 3
+  retry_delay_seconds: 30
+  max_parallel_downloads: 4
+  max_parallel_uploads: 2
+  delete_orphaned: false   # Set true if you want deletions to propagate
+
+models:
+  - name: "my-llm"
+    hf_repo_id: "my-org/my-llm-v2"
+    ms_repo_id: "my-org/my-llm-v2"
+    direction: "bidirectional"
+    enabled: true
+
+datasets:
+  - name: "training-data"
+    hf_repo_id: "my-org/training-data-v2"
+    ms_repo_id: "my-org/training-data-v2"
+    direction: "bidirectional"
+    enabled: true

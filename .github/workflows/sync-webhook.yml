@@ -1,0 +1,77 @@
+name: HF-MS Sync (Webhook)
+
+on:
+  repository_dispatch:
+    types: [sync-trigger]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Parse webhook payload
+        id: parse
+        run: |
+          echo "repo_id=${{ github.event.client_payload.repo_id }}" >> "$GITHUB_OUTPUT"
+          echo "platform=${{ github.event.client_payload.platform }}" >> "$GITHUB_OUTPUT"
+          echo "resource_type=${{ github.event.client_payload.resource_type || 'model' }}" >> "$GITHUB_OUTPUT"
+          echo "direction=${{ github.event.client_payload.direction || 'config' }}" >> "$GITHUB_OUTPUT"
+          echo "target=${{ github.event.client_payload.target || '' }}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install git-lfs
+        run: |
+          sudo apt-get update && sudo apt-get install -y git-lfs
+          git lfs install
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Restore sync state
+        uses: actions/download-artifact@v4
+        with:
+          name: sync-state
+          path: .sync_state/
+        continue-on-error: true
+
+      - name: Run sync
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          MODELSCOPE_TOKEN: ${{ secrets.MODELSCOPE_TOKEN }}
+        run: |
+          ARGS="--config config/sync_config.yaml --state-dir .sync_state/"
+
+          DIRECTION="${{ steps.parse.outputs.direction }}"
+          if [ "$DIRECTION" != "config" ] && [ -n "$DIRECTION" ]; then
+            ARGS="$ARGS --direction $DIRECTION"
+          fi
+
+          TARGET="${{ steps.parse.outputs.target }}"
+          if [ -n "$TARGET" ]; then
+            ARGS="$ARGS --target $TARGET"
+          fi
+
+          python -m src.sync_engine $ARGS
+
+      - name: Save sync state
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sync-state
+          path: .sync_state/
+          retention-days: 30
+          overwrite: true
+
+      - name: Notify on completion
+        if: always()
+        run: |
+          echo "Webhook sync completed for: ${{ steps.parse.outputs.repo_id }}"
+          echo "Platform: ${{ steps.parse.outputs.platform }}"
+          echo "Direction: ${{ steps.parse.outputs.direction }}"

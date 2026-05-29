@@ -1,0 +1,49 @@
+# Example 4: Dataset Sync
+#
+# Sync datasets between HuggingFace and ModelScope.
+# Use case: keep training data accessible on both platforms.
+
+global:
+  sync_direction: "hf_to_ms"
+  conflict_strategy: "hf_priority"
+  max_file_size_gb: 200
+  retry_attempts: 3
+  max_parallel_downloads: 8
+  max_parallel_uploads: 4
+
+models: []
+
+datasets:
+  # Parquet-based dataset
+  - name: "web-corpus"
+    hf_repo_id: "my-org/web-corpus-2024"
+    ms_repo_id: "my-org/web-corpus-2024"
+    direction: "hf_to_ms"
+    include_patterns:
+      - "data/*.parquet"
+      - "data/*.jsonl"
+      - "dataset_infos.json"
+      - "README.md"
+    exclude_patterns:
+      - "data/test/*"
+      - "*.cache"
+    enabled: true
+
+  # Image dataset (large files)
+  - name: "image-dataset"
+    hf_repo_id: "my-org/image-dataset-v2"
+    ms_repo_id: "my-org/image-dataset-v2"
+    direction: "hf_to_ms"
+    include_patterns:
+      - "*.parquet"
+      - "*.json"
+      - "images/*.tar"
+    enabled: true
+
+  # Bidirectional: annotations from both teams
+  - name: "annotations"
+    hf_repo_id: "my-org/annotations"
+    ms_repo_id: "my-org/annotations"
+    direction: "bidirectional"
+    conflict_strategy: "newer_wins"
+    enabled: true

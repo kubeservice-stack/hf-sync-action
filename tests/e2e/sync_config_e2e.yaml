@@ -1,0 +1,31 @@
+# E2E Test Configuration
+# Uses tiny models for fast CI validation
+
+global:
+  sync_direction: "bidirectional"
+  conflict_strategy: "newer_wins"
+  max_file_size_gb: 1
+  retry_attempts: 2
+  retry_delay_seconds: 10
+  max_parallel_downloads: 2
+  max_parallel_uploads: 2
+  delete_orphaned: false
+
+models:
+  - name: "e2e-test-model"
+    hf_repo_id: "sshleifer/tiny-gpt2"
+    ms_repo_id: "${E2E_MS_REPO}"   # Injected at runtime via env var
+    direction: "hf_to_ms"
+    include_patterns:
+      - "*.bin"
+      - "*.json"
+      - "*.txt"
+      - "*.model"
+    exclude_patterns:
+      - "*.msgpack"
+      - "*.h5"
+      - "flax_model*"
+      - "tf_model*"
+    enabled: true
+
+datasets: []

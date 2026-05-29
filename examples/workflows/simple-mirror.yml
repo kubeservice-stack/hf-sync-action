@@ -1,0 +1,69 @@
+# Example Workflow: External Project - Simple Mirror
+#
+# Copy this file to your repo as: .github/workflows/sync.yml
+#
+# Prerequisites:
+#   1. Add secrets: HF_TOKEN, MODELSCOPE_TOKEN
+#   2. Copy examples/05-minimal-external.yaml as config/sync_config.yaml
+#      and edit the repo IDs
+#   3. Customize schedule and direction as needed
+
+name: HF-MS Sync
+
+on:
+  # Run every 6 hours
+  schedule:
+    - cron: '0 */6 * * *'
+
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      direction:
+        description: 'Sync direction'
+        type: choice
+        options: [config, hf_to_ms, ms_to_hf, bidirectional]
+        default: config
+      dry_run:
+        description: 'Dry run (no actual transfer)'
+        type: boolean
+        default: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Option A: Use as a published Marketplace Action (recommended)
+      - name: Run HF-MS Sync
+        uses: kubeservice-stack/hf-sync-action@v1
+        with:
+          config: config/sync_config.yaml
+          direction: ${{ inputs.direction || 'config' }}
+          dry_run: ${{ inputs.dry_run || 'false' }}
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          MODELSCOPE_TOKEN: ${{ secrets.MODELSCOPE_TOKEN }}
+
+      # Option B: Run from source (uncomment if not using Marketplace action)
+      # - uses: actions/setup-python@v5
+      #   with:
+      #     python-version: '3.11'
+      # - name: Install git-lfs
+      #   run: |
+      #     sudo apt-get update && sudo apt-get install -y git-lfs
+      #     git lfs install
+      # - name: Install deps
+      #   run: pip install huggingface_hub modelscope pyyaml pydantic tqdm tenacity
+      # - name: Sync
+      #   env:
+      #     HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      #     MODELSCOPE_TOKEN: ${{ secrets.MODELSCOPE_TOKEN }}
+      #   run: |
+      #     git clone https://github.com/kubeservice-stack/hf-sync-action.git /tmp/sync-tool
+      #     cd /tmp/sync-tool
+      #     python -m src.sync_engine \
+      #       --config ${{ github.workspace }}/config/sync_config.yaml \
+      #       --state-dir ${{ github.workspace }}/.sync_state/

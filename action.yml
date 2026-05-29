@@ -1,0 +1,51 @@
+name: 'HF-MS Sync'
+description: 'Bidirectional sync of AI models and datasets between HuggingFace and ModelScope. Supports scheduled, manual, and webhook-triggered sync with conflict resolution.'
+author: 'dongjiang'
+
+branding:
+  icon: 'refresh-cw'
+  color: 'yellow'
+
+inputs:
+  config:
+    description: 'Path to sync config YAML file'
+    required: false
+    default: 'config/sync_config.yaml'
+  direction:
+    description: 'Override sync direction: hf_to_ms | ms_to_hf | bidirectional | config (use config file setting)'
+    required: false
+    default: 'config'
+  dry_run:
+    description: 'Dry run mode - detect changes without transferring files (true/false)'
+    required: false
+    default: 'false'
+  target:
+    description: 'Sync only a specific model or dataset by name (leave empty to sync all configured items)'
+    required: false
+    default: ''
+  log_level:
+    description: 'Logging level: DEBUG | INFO | WARNING | ERROR'
+    required: false
+    default: 'INFO'
+
+outputs:
+  sync_status:
+    description: 'Overall sync status: success | partial | failed'
+  files_synced:
+    description: 'Total number of files synced'
+  bytes_transferred:
+    description: 'Total bytes transferred'
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - '--config'
+    - ${{ inputs.config }}
+    - '--direction'
+    - ${{ inputs.direction }}
+    - '--dry-run=${{ inputs.dry_run }}'
+    - '--target'
+    - ${{ inputs.target }}
+    - '--log-level'
+    - ${{ inputs.log_level }}

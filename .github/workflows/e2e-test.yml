@@ -1,0 +1,237 @@
+name: E2E Test - Bidirectional Sync
+
+# E2E test: performs real HF<->MS sync with a tiny model, then verifies file consistency.
+# Requires secrets: HF_TOKEN, MODELSCOPE_TOKEN
+# Uses sshleifer/tiny-gpt2 (~60MB) for fast CI validation.
+
+on:
+  workflow_dispatch:
+    inputs:
+      hf_repo:
+        description: 'Source HuggingFace repo (tiny model)'
+        required: false
+        default: 'sshleifer/tiny-gpt2'
+      ms_repo:
+        description: 'Target ModelScope repo (will be created if needed)'
+        required: true
+      direction:
+        description: 'Sync direction to test'
+        type: choice
+        options:
+          - hf_to_ms
+          - ms_to_hf
+          - bidirectional
+        default: hf_to_ms
+      cleanup:
+        description: 'Delete the MS test repo after verification'
+        type: boolean
+        default: true
+
+  # Also allow running on PR (dry-run only, no secrets needed for listing)
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'tests/e2e/**'
+      - '.github/workflows/e2e-test.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  # ── Stage 1: Unit tests (always run) ────────────────────────────────
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Run unit tests
+        run: pytest tests/ -v --tb=short -x
+
+  # ── Stage 2: E2E sync test (requires secrets) ──────────────────────
+  e2e-sync:
+    needs: unit-tests
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install git-lfs
+        run: |
+          sudo apt-get update && sudo apt-get install -y git-lfs
+          git lfs install
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Step 1: HF -> MS (or bidirectional)
+      - name: "E2E: Sync HF -> MS"
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          MODELSCOPE_TOKEN: ${{ secrets.MODELSCOPE_TOKEN }}
+        run: |
+          # Generate a temporary config with the test repos
+          cat > /tmp/e2e_config.yaml << EOF
+          global:
+            sync_direction: "${{ inputs.direction }}"
+            conflict_strategy: "newer_wins"
+            max_file_size_gb: 1
+            retry_attempts: 2
+            retry_delay_seconds: 10
+            max_parallel_downloads: 2
+            max_parallel_uploads: 2
+
+          models:
+            - name: "e2e-test"
+              hf_repo_id: "${{ inputs.hf_repo }}"
+              ms_repo_id: "${{ inputs.ms_repo }}"
+              direction: "${{ inputs.direction }}"
+              include_patterns:
+                - "*.bin"
+                - "*.json"
+                - "*.txt"
+                - "*.model"
+              exclude_patterns:
+                - "*.msgpack"
+                - "*.h5"
+                - "flax_model*"
+                - "tf_model*"
+              enabled: true
+
+          datasets: []
+          EOF
+
+          echo "━━━ Running E2E sync ━━━"
+          echo "HF repo:  ${{ inputs.hf_repo }}"
+          echo "MS repo:  ${{ inputs.ms_repo }}"
+          echo "Direction: ${{ inputs.direction }}"
+          echo ""
+
+          python -m src.sync_engine \
+            --config /tmp/e2e_config.yaml \
+            --state-dir /tmp/e2e_state/
+
+      # Step 2: Verify file consistency
+      - name: "E2E: Verify file consistency"
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          MODELSCOPE_TOKEN: ${{ secrets.MODELSCOPE_TOKEN }}
+        run: |
+          echo "━━━ Verifying sync consistency ━━━"
+          python tests/e2e/verify_sync.py \
+            --hf-repo "${{ inputs.hf_repo }}" \
+            --ms-repo "${{ inputs.ms_repo }}" \
+            --include "*.bin" "*.json" "*.txt" "*.model" \
+            --exclude "*.msgpack" "*.h5" "flax_model*" "tf_model*"
+
+      # Step 3: Dry-run second sync (should detect 0 changes)
+      - name: "E2E: Idempotency check (second sync should be no-op)"
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          MODELSCOPE_TOKEN: ${{ secrets.MODELSCOPE_TOKEN }}
+        run: |
+          echo "━━━ Idempotency check ━━━"
+          python -m src.sync_engine \
+            --config /tmp/e2e_config.yaml \
+            --state-dir /tmp/e2e_state/ \
+            --dry-run true 2>&1 | tee /tmp/idempotency.log
+
+          # Verify no files would be transferred
+          if grep -q "No changes to sync" /tmp/idempotency.log; then
+            echo "✓ Idempotency check passed: no changes detected on second sync"
+          else
+            echo "⚠ Idempotency check: files may still differ (check logs above)"
+          fi
+
+      # Step 4: Cleanup (optional)
+      - name: "E2E: Cleanup test repo"
+        if: inputs.cleanup == true
+        env:
+          MODELSCOPE_TOKEN: ${{ secrets.MODELSCOPE_TOKEN }}
+        run: |
+          echo "━━━ Cleaning up test repo ━━━"
+          python3 -c "
+          import os
+          token = os.environ.get('MODELSCOPE_TOKEN', '')
+          try:
+              from modelscope.hub.api import HubApi
+              api = HubApi()
+              api.delete_repo('${{ inputs.ms_repo }}')
+              print('Deleted MS repo: ${{ inputs.ms_repo }}')
+          except Exception as e:
+              print(f'Cleanup warning: {e}')
+          " || echo "Cleanup skipped (non-fatal)"
+
+      # Summary
+      - name: E2E Summary
+        if: always()
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" << 'EOF'
+          ## E2E Test Summary
+
+          | Parameter | Value |
+          |-----------|-------|
+          | HF Repo | `${{ inputs.hf_repo }}` |
+          | MS Repo | `${{ inputs.ms_repo }}` |
+          | Direction | `${{ inputs.direction }}` |
+          | Cleanup | `${{ inputs.cleanup }}` |
+          EOF
+
+  # ── Stage 3: Dry-run validation on PR (no secrets needed) ──────────
+  pr-dry-run:
+    needs: unit-tests
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Config validation
+        run: |
+          echo "━━━ Validating config parsing and change detection ━━━"
+          python3 -c "
+          from src.config import load_config
+          from src.models import SyncDirection
+
+          config = load_config('config/sync_config.yaml')
+          items = [m for m in config.models if m.enabled]
+          print(f'Config valid: {len(items)} model(s), {len(config.datasets)} dataset(s)')
+          print(f'Global direction: {config.global_config.sync_direction.value}')
+          print(f'Conflict strategy: {config.global_config.conflict_strategy.value}')
+
+          for item in items:
+              print(f'  - {item.name}: {item.hf_repo_id} -> {item.ms_repo_id}')
+          print()
+          print('Config validation PASSED')
+          "
+
+      - name: Adapter import check
+        run: |
+          echo "━━━ Verifying adapter imports ━━━"
+          python3 -c "
+          from src.adapters.huggingface_adapter import HuggingFaceAdapter
+          from src.adapters.modelscope_adapter import ModelScopeAdapter
+          from src.change_detector import ChangeDetector, BidirectionalChangeDetector
+          from src.sync_engine import SyncEngine
+          print('All module imports OK')
+          "

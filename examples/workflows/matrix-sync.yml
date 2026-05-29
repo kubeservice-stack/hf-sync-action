@@ -1,0 +1,68 @@
+# Example Workflow: External Project - Matrix Sync
+#
+# Sync multiple models in parallel using GitHub Actions matrix strategy.
+# Each model runs as a separate job for faster overall sync.
+#
+# Copy this file to your repo as: .github/workflows/sync-matrix.yml
+
+name: HF-MS Matrix Sync
+
+on:
+  schedule:
+    - cron: '0 2 * * *'          # Daily at 2 AM UTC
+  workflow_dispatch:
+
+jobs:
+  # Generate the matrix dynamically from config
+  generate-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: set-matrix
+        run: |
+          # Parse config to extract enabled model names
+          MODELS=$(python3 -c "
+          import yaml
+          with open('config/sync_config.yaml') as f:
+              cfg = yaml.safe_load(f)
+          names = [m['name'] for m in cfg.get('models', []) if m.get('enabled', True)]
+          import json
+          print(json.dumps({'model': names}))
+          ")
+          echo "matrix=$MODELS" >> "$GITHUB_OUTPUT"
+
+  # Sync each model in parallel
+  sync:
+    needs: generate-matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false             # Don't cancel other jobs on failure
+      max-parallel: 3              # Max 3 concurrent syncs
+      matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: kubeservice-stack/hf-sync-action@v1
+        with:
+          config: config/sync_config.yaml
+          target: ${{ matrix.model }}
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          MODELSCOPE_TOKEN: ${{ secrets.MODELSCOPE_TOKEN }}
+
+  # Aggregate results
+  report:
+    needs: sync
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Summary
+        run: |
+          echo "## Matrix Sync Complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "All model sync jobs have finished." >> "$GITHUB_STEP_SUMMARY"

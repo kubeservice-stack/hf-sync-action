@@ -1,0 +1,39 @@
+# Example 1: Simple HF -> MS Mirror
+#
+# One-way sync from HuggingFace to ModelScope.
+# Use case: mirror popular open-source models for faster access in China.
+#
+# Workflow file (.github/workflows/sync.yml):
+#   See ../workflows/simple-mirror.yml
+
+global:
+  sync_direction: "hf_to_ms"
+  conflict_strategy: "hf_priority"
+  max_file_size_gb: 50
+  retry_attempts: 3
+  max_parallel_downloads: 4
+  max_parallel_uploads: 2
+
+models:
+  - name: "llama-3-8b"
+    hf_repo_id: "meta-llama/Meta-Llama-3-8B"
+    ms_repo_id: "my-org/Meta-Llama-3-8B"
+    direction: "hf_to_ms"
+    include_patterns:
+      - "*.safetensors"
+      - "*.json"
+      - "tokenizer*"
+      - "*.model"
+    exclude_patterns:
+      - "*.msgpack"
+      - "*.h5"
+      - "original/*"
+    enabled: true
+
+  - name: "qwen2-72b"
+    hf_repo_id: "Qwen/Qwen2-72B-Instruct"
+    ms_repo_id: "my-org/Qwen2-72B-Instruct"
+    direction: "hf_to_ms"
+    enabled: true
+
+datasets: []

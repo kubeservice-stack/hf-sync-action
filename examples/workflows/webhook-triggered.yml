@@ -1,0 +1,42 @@
+# Example Workflow: External Project - Webhook-triggered Sync
+#
+# Copy this file to your repo as: .github/workflows/sync-on-push.yml
+#
+# Use case: Trigger sync whenever a model is pushed to a HuggingFace repo.
+# Set up a HuggingFace webhook that calls GitHub repository_dispatch.
+#
+# External trigger (from CI or script):
+#   curl -X POST \
+#     -H "Accept: application/vnd.github+json" \
+#     -H "Authorization: Bearer $GITHUB_TOKEN" \
+#     https://api.github.com/repos/{owner}/{repo}/dispatches \
+#     -d '{"event_type":"sync-trigger","client_payload":{"target":"my-model","direction":"hf_to_ms"}}'
+
+name: HF-MS Sync on Webhook
+
+on:
+  repository_dispatch:
+    types: [sync-trigger]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Parse trigger
+        id: trigger
+        run: |
+          echo "target=${{ github.event.client_payload.target || '' }}" >> "$GITHUB_OUTPUT"
+          echo "direction=${{ github.event.client_payload.direction || 'config' }}" >> "$GITHUB_OUTPUT"
+          echo "Triggered by: ${{ github.event.client_payload.triggered_by || 'unknown' }}"
+
+      - uses: actions/checkout@v4
+
+      - uses: kubeservice-stack/hf-sync-action@v1
+        with:
+          config: config/sync_config.yaml
+          direction: ${{ steps.trigger.outputs.direction }}
+          target: ${{ steps.trigger.outputs.target }}
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          MODELSCOPE_TOKEN: ${{ secrets.MODELSCOPE_TOKEN }}

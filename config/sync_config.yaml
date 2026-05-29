@@ -1,0 +1,48 @@
+# HF-MS Sync Configuration
+# Sync models and datasets between HuggingFace and ModelScope
+
+# Global settings
+global:
+  sync_direction: "bidirectional"    # hf_to_ms | ms_to_hf | bidirectional
+  conflict_strategy: "newer_wins"    # newer_wins | hf_priority | ms_priority | skip
+  max_file_size_gb: 50
+  retry_attempts: 3
+  retry_delay_seconds: 30
+  max_parallel_downloads: 4
+  max_parallel_uploads: 2
+  delete_orphaned: false
+
+# Models to sync
+models:
+  - name: "qwen2.5-7b-instruct"
+    hf_repo_id: "Qwen/Qwen2.5-7B-Instruct"
+    ms_repo_id: "Qwen/Qwen2.5-7B-Instruct"
+    direction: "hf_to_ms"
+    include_patterns:
+      - "*.safetensors"
+      - "*.json"
+      - "tokenizer*"
+      - "config.json"
+      - "*.model"
+    exclude_patterns:
+      - "*.msgpack"
+      - "*.h5"
+    enabled: true
+
+  # Add more models here:
+  # - name: "my-model"
+  #   hf_repo_id: "my-org/my-model"
+  #   ms_repo_id: "my-org/my-model"
+  #   direction: "bidirectional"
+  #   enabled: true
+
+# Datasets to sync
+datasets: []
+  # - name: "my-dataset"
+  #   hf_repo_id: "my-org/my-dataset"
+  #   ms_repo_id: "my-org/my-dataset"
+  #   direction: "hf_to_ms"
+  #   include_patterns:
+  #     - "*.parquet"
+  #     - "*.jsonl"
+  #   enabled: true
