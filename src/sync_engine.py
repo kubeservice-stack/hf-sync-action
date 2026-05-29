@@ -249,8 +249,10 @@ class SyncEngine:
                     else (SyncStatus.PARTIAL if success else SyncStatus.FAILED)
                 )
 
-            # Update sync state
-            self._update_state(item, hf_snapshot, ms_snapshot, result.files_synced)
+            # Update sync state even on partial success, so successfully
+            # transferred files are recorded and won't be re-synced next run
+            if result.files_synced:
+                self._update_state(item, hf_snapshot, ms_snapshot, result.files_synced)
 
         except Exception as e:
             logger.error("Failed to sync %s: %s", item.name, e, exc_info=True)
@@ -266,7 +268,11 @@ class SyncEngine:
         item: SyncItem,
         max_parallel: int,
     ) -> tuple[list[str], list[str], int]:
-        """Execute file transfers with concurrency control.
+        """Execute file transfers with disk-space awareness.
+
+        Large files (>100MB) are transferred sequentially to avoid filling
+        up disk (common on CI runners with limited space).
+        Small files are transferred in parallel for speed.
 
         Returns (success_files, failed_files, total_bytes).
         """
@@ -275,20 +281,59 @@ class SyncEngine:
         total_bytes = 0
         temp_dir = create_temp_dir()
 
+        large_file_threshold = 100 * 1024 * 1024  # 100 MB
+
         try:
             # Sort: small files first for faster feedback
             sorted_actions = sorted(actions, key=lambda a: a.size)
 
-            with ThreadPoolExecutor(max_workers=max_parallel) as pool:
-                futures = {}
-                for action in sorted_actions:
-                    future = pool.submit(self._transfer_file, action, item, temp_dir)
-                    futures[future] = action
+            large_actions = [a for a in sorted_actions if a.size > large_file_threshold]
+            small_actions = [a for a in sorted_actions if a.size <= large_file_threshold]
 
-                for future in as_completed(futures):
-                    action = futures[future]
+            # Transfer small files in parallel
+            if small_actions:
+                logger.info(
+                    "Transferring %d small files in parallel (max_workers=%d)",
+                    len(small_actions),
+                    max_parallel,
+                )
+                with ThreadPoolExecutor(max_workers=max_parallel) as pool:
+                    futures = {}
+                    for action in small_actions:
+                        future = pool.submit(self._transfer_file, action, item, temp_dir)
+                        futures[future] = action
+
+                    for future in as_completed(futures):
+                        action = futures[future]
+                        try:
+                            transferred_bytes = future.result()
+                            success.append(action.file_path)
+                            total_bytes += transferred_bytes
+                            logger.info(
+                                "  ✓ %s (%s)",
+                                action.file_path,
+                                format_bytes(transferred_bytes),
+                            )
+                        except Exception as e:
+                            failed.append(action.file_path)
+                            logger.error("  ✗ %s: %s", action.file_path, e)
+
+            # Transfer large files sequentially to save disk space
+            if large_actions:
+                logger.info(
+                    "Transferring %d large files sequentially to conserve disk space",
+                    len(large_actions),
+                )
+                for i, action in enumerate(large_actions, 1):
+                    logger.info(
+                        "  [%d/%d] %s (%s)",
+                        i,
+                        len(large_actions),
+                        action.file_path,
+                        format_bytes(action.size),
+                    )
                     try:
-                        transferred_bytes = future.result()
+                        transferred_bytes = self._transfer_file(action, item, temp_dir)
                         success.append(action.file_path)
                         total_bytes += transferred_bytes
                         logger.info(
