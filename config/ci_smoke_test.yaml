@@ -1,0 +1,6 @@
+# Minimal config for CI smoke testing (no API calls needed)
+global:
+  sync_direction: "hf_to_ms"
+
+models: []
+datasets: []
