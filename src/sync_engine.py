@@ -133,7 +133,12 @@ class SyncEngine:
                 self.hf.create_repo_if_needed(item.hf_repo_id, item.resource_type)
 
             # Fetch snapshots
-            hf_snapshot = self.hf.get_repo_snapshot(item.hf_repo_id, item.resource_type)
+            hf_snapshot = None
+            try:
+                hf_snapshot = self.hf.get_repo_snapshot(item.hf_repo_id, item.resource_type)
+            except Exception as e:
+                logger.warning("[HF] Could not fetch snapshot for %s: %s", item.hf_repo_id, e)
+
             ms_snapshot = None
             try:
                 ms_snapshot = self.ms.get_repo_snapshot(item.ms_repo_id, item.resource_type)
@@ -150,6 +155,11 @@ class SyncEngine:
             )
 
             if item.direction == SyncDirection.BIDIRECTIONAL:
+                if hf_snapshot is None and ms_snapshot is None:
+                    raise RuntimeError(
+                        f"Cannot sync BIDIRECTIONAL: failed to fetch both "
+                        f"HF ({item.hf_repo_id}) and MS ({item.ms_repo_id}) snapshots"
+                    )
                 bd = BidirectionalChangeDetector(**detector_kwargs)
                 hf_state = self.states.get(
                     SyncState.make_key("hf", item.resource_type, item.hf_repo_id)
@@ -165,6 +175,11 @@ class SyncEngine:
                 )
                 all_actions = hf_to_ms_actions + ms_to_hf_actions
             elif item.direction == SyncDirection.HF_TO_MS:
+                if hf_snapshot is None:
+                    raise RuntimeError(
+                        f"Cannot sync HF_TO_MS: failed to fetch HuggingFace "
+                        f"snapshot for {item.hf_repo_id}"
+                    )
                 detector = ChangeDetector(**detector_kwargs)
                 state = self.states.get(
                     SyncState.make_key("hf", item.resource_type, item.hf_repo_id)
@@ -350,7 +365,8 @@ class SyncEngine:
         # Update HF state
         hf_key = SyncState.make_key("hf", item.resource_type, item.hf_repo_id)
         hf_state = self.states.get(hf_key, SyncState(repo_key=hf_key))
-        hf_state.last_synced_commit = hf_snapshot.last_commit_hash
+        if hf_snapshot:
+            hf_state.last_synced_commit = hf_snapshot.last_commit_hash
         hf_state.last_synced_at = now
         for fp in synced_files:
             hf_file = hf_file_map.get(fp)
@@ -516,8 +532,11 @@ def main() -> None:
 
     print_summary(results)
 
-    # Exit with error code if any failures
-    if any(r.status == SyncStatus.FAILED for r in results):
+    # Exit with error code only if ALL items failed
+    # Partial success (some items OK, some failed) exits 0 to avoid
+    # blocking downstream steps like report generation
+    all_failed = results and all(r.status == SyncStatus.FAILED for r in results)
+    if all_failed:
         sys.exit(1)
 
 
