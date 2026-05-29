@@ -213,7 +213,8 @@ class ModelScopeAdapter(PlatformAdapter):
         except Exception as e:
             error_msg = str(e).lower()
             # Detect permission errors and provide clear message
-            if "does not exist" in error_msg or "403" in error_msg or "401" in error_msg or "forbidden" in error_msg:
+            perm_keywords = ("does not exist", "403", "401", "forbidden")
+            if any(kw in error_msg for kw in perm_keywords):
                 raise PermissionError(
                     f"Cannot upload to {repo_id}: you don't have write access. "
                     f"Make sure you own this repo or use your own namespace "
@@ -244,7 +245,8 @@ class ModelScopeAdapter(PlatformAdapter):
         except Exception as e:
             error_msg = str(e).lower()
             # Detect permission errors and provide clear message
-            if "does not exist" in error_msg or "403" in error_msg or "401" in error_msg or "forbidden" in error_msg:
+            perm_keywords = ("does not exist", "403", "401", "forbidden")
+            if any(kw in error_msg for kw in perm_keywords):
                 raise PermissionError(
                     f"Cannot upload to {repo_id}: you don't have write access. "
                     f"Make sure you own this repo or use your own namespace "
