@@ -122,6 +122,9 @@ jobs:
 
       - name: Dry-run test in Docker
         run: |
+          # Run dry-run; expect non-zero exit (no real tokens) but verify
+          # the entrypoint starts correctly and arguments are propagated.
+          set +e
           docker run --rm \
             -v ${{ github.workspace }}/config:/app/config \
             -e INPUT_CONFIG=config/sync_config.yaml \
@@ -132,5 +135,18 @@ jobs:
             -e INPUT_TARGET= \
             -e INPUT_HF_TOKEN= \
             -e INPUT_MODELSCOPE_TOKEN= \
-            hf-ms-sync:ci || true
-          # Dry-run may fail without real tokens, but should not crash on import/config
+            -e GITHUB_OUTPUT=/tmp/github_output \
+            -e GITHUB_STEP_SUMMARY=/tmp/github_step_summary \
+            hf-ms-sync:ci 2>&1 | tee /tmp/docker_output.log
+          DOCKER_EXIT=$?
+          set -e
+
+          # Verify entrypoint started and parsed arguments correctly
+          grep -q "Config:.*sync_config.yaml" /tmp/docker_output.log \
+            || { echo "FAIL: entrypoint did not print config summary"; exit 1; }
+          grep -q "Dry run:.*true" /tmp/docker_output.log \
+            || { echo "FAIL: dry_run flag not propagated to entrypoint"; exit 1; }
+          grep -q "Direction:.*hf_to_ms" /tmp/docker_output.log \
+            || { echo "FAIL: direction flag not propagated"; exit 1; }
+
+          echo "Docker smoke test PASSED (exit=$DOCKER_EXIT, non-zero expected without tokens)"
